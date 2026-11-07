@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\WaveManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="src\Audio.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -47,6 +50,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\WaveManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="src\Audio.h">
       <Filter>头文件</Filter>
     </ClInclude>

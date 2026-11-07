@@ -21,13 +21,13 @@ void Game::run() {
 	playbgm();
 	spawnSkySun();
 	lastSkySunTime = GetTickCount64();
-	// 当局生成僵尸数量
-	spawnedZombieCount = 0;
-	lastZombieSpawnTime = GetTickCount64();
+	waveManager.reset(GetTickCount64());
+	previousSpawnRow = -1;
 	running = true;
 
 	BeginBatchDraw();
 	while (running) {
+		Audio::beginFrame();
 		processInput();
 		if (!running) {
 			break;
@@ -89,12 +89,14 @@ void Game::loadAssets() {
 		path += (i < 10 ? L"0" : L"");
 		path += std::to_wstring(i) + L".png";
 		loadimage(&peashooter[i], path.c_str());
+		resizePng(peashooter[i], 115, 115);
 	}
 	for (int i = 0; i < sunflowerFrameCount; ++i) {
 		std::wstring path = L"assets/plants/sunflower/idle/";
 		path += (i < 10 ? L"0" : L"");
 		path += std::to_wstring(i) + L".png";
 		loadimage(&sunflower[i], path.c_str());
+		resizePng(sunflower[i], 115, 115);
 	}
 	for (int i = 0; i < wallnutFrameCount; ++i) {
 		std::wstring path = L"assets/plants/wallnut/idle/";
@@ -143,10 +145,16 @@ void Game::loadAssets() {
 
 	// 加载豌豆子弹
 	loadimage(&peaImage, L"assets/effects/pea.png");
+	resizePng(peaImage, 28, 28);
 
 	// 加载铲子
 	loadimage(&shovelBank, L"assets/ui/shovel_bank.png");
 	loadimage(&shovel, L"assets/ui/shovel.png");
+
+	// 生成受击闪白图像缓存
+	for (IMAGE& image : zombieWalkFrames) prepareWhiteImage(image);
+	for (IMAGE& image : zombieEatFrames) prepareWhiteImage(image);
+	for (IMAGE& image : zombieDieFrames) prepareWhiteImage(image);
 }
 
 void Game::playbgm() {
@@ -186,11 +194,6 @@ void Game::loadSoundEffects() {
 }
 
 void Game::processInput() {
-	// 按 Esc 退出循环
-	if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-		running = false;
-		return;
-	}
 	if (state != GameState::PLAYING) return;
 
 	// 处理鼠标事件
@@ -302,21 +305,21 @@ void Game::update() {
 	}
 
 	// 随机生成僵尸
-	if (spawnedZombieCount < TOTAL_ZOMBIES) {
-		ULONGLONG now = GetTickCount64();
+	int aliveCount = 0;
+	for (const Zombie& zombie : zombies) {
+		if (!zombie.isDead()) ++aliveCount;
+	}
+	if (waveManager.update(now, aliveCount)) {
+		// 随机生成僵尸
+		// 随机选择第 0～4 行
+		std::uniform_int_distribution<int> randomRow(0, rowCount - 1);
+		int row;
+		do {
+			row = randomRow(randomEngine);
+		} while (row == previousSpawnRow); // 同一行就再随机
 
-		// 第一只等 10 秒，后面的每只间隔 5 秒
-		ULONGLONG interval = spawnedZombieCount == 0 ? FIRST_ZOMBIE_DELAY : ZOMBIE_SPAWN_INTERVAL;
-
-		if (now - lastZombieSpawnTime >= interval) {
-			// 随机选择第 0～4 行
-			std::uniform_int_distribution<int> randomRow(0, rowCount - 1);
-			spawnZombie(randomRow(randomEngine));
-
-			// 累计数量增加，并重新记录生成时间
-			++spawnedZombieCount;
-			lastZombieSpawnTime = now;
-		}
+		spawnZombie(row);
+		previousSpawnRow = row;
 	}
 
 	// 更新场上的植物
@@ -341,9 +344,16 @@ void Game::update() {
 		}
 	}
 
+	for (auto& row : zombiesByRow) {
+		row.clear();
+	}
+
 	// 更新场上的僵尸
 	for (Zombie& zombie : zombies) {
 		zombie.update(*this);
+		if (!zombie.isDead()) {
+			zombiesByRow[zombie.getRow()].push_back(&zombie);
+		}
 	}
 
 	// 更新场上的子弹
@@ -353,18 +363,19 @@ void Game::update() {
 
 		// 判定命中僵尸
 		Zombie* target = nullptr;
-		for (Zombie& zombie : zombies) {
-			if (zombie.isDead() || zombie.getRow() != it->getRow()) continue;
+		for (Zombie* zombie : zombiesByRow[it->getRow()]) {
+			// 可能已被这一帧前面的子弹击杀
+			if (zombie->isDead()) continue;
 
 			// 僵尸左右判定范围
-			double left = zombie.getX() - 34;
-			double right = zombie.getX() + 34;
+			double left = zombie->getX() - 34;
+			double right = zombie->getX() + 34;
 
 			// 当前子弹横坐标小于僵尸右边界 且 大于左边界
 			if (previousX <= right && it->getX() >= left) {
 				// 优先选择最左边的僵尸为目标
-				if (!target || zombie.getX() < target->getX()) {
-					target = &zombie;
+				if (!target || zombie->getX() < target->getX()) {
+					target = zombie;
 				}
 			}
 		}
@@ -402,7 +413,7 @@ void Game::update() {
 	}
 
 	// 生成完全部僵尸，并且倒地动画也已播放完毕
-	if (spawnedZombieCount >= TOTAL_ZOMBIES && zombies.empty()) {
+	if (waveManager.allSpawned() && zombies.empty()) {
 		endGame(GameState::WON);
 	}
 }

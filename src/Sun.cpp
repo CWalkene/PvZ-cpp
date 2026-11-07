@@ -54,7 +54,10 @@ void Sun::update() {
 		y = static_cast<int>(
 			fallStartY + (fallGroundY - fallStartY) * t);
 
-		if (t >= 1.0) falling = false;
+		if (t >= 1.0) {
+			falling = false;
+			expireTime = GetTickCount64() + GROUND_LIFETIME;
+		}
 	}
 }
 

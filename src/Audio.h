@@ -7,6 +7,8 @@ public:
 	static bool playMusic(const std::wstring& path);
 	static void stopMusic();
 
+	static void beginFrame();
+
 	// 加载音效，并为它指定一个播放别名
 	static bool loadSound(const std::wstring& path, const std::wstring& alias);
 

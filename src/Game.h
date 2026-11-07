@@ -4,12 +4,14 @@
 #include "Sun.h"
 #include "Zombie.h"
 #include "Bullet.h"
+#include "WaveManager.h"
 
 #include <easyx.h>
 #include <memory>
 #include <vector>
 #include <Windows.h>
 #include <random>
+#include <array>
 
 class Game {
 public:
@@ -62,13 +64,10 @@ private:
 	static constexpr int sunflowerFrameCount = 25;
 	static constexpr int wallnutFrameCount = 17;
 
-	// 僵尸生成规则
-	static constexpr int TOTAL_ZOMBIES = 20;
-	static constexpr ULONGLONG FIRST_ZOMBIE_DELAY = 15000;
-	static constexpr ULONGLONG ZOMBIE_SPAWN_INTERVAL = 5000;
-	// 累计生成数量，僵尸死亡后不减少
-	int spawnedZombieCount = 0;
-	ULONGLONG lastZombieSpawnTime = 0;
+	WaveManager waveManager;
+
+	// 用于避免连续两只僵尸出现在同一行
+	int previousSpawnRow = -1;
 
 	IMAGE background;
 
@@ -94,6 +93,7 @@ private:
 	// 场上的对象
 	std::vector<Sun> suns;
 	std::vector<Zombie> zombies;
+	std::array<std::vector<Zombie*>, rowCount> zombiesByRow;
 
 	// 豌豆图片与场上的子弹
 	IMAGE peaImage;

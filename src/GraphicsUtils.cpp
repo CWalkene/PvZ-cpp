@@ -2,8 +2,13 @@
 
 #include <Windows.h>
 #include <easyx.h>
+#include <unordered_map>
 
 #pragma comment(lib, "Msimg32.lib")
+
+namespace {
+	std::unordered_map<IMAGE*, IMAGE> whiteImages;
+}
 
 void drawPng(int x, int y, int width, int height, IMAGE& image, unsigned char opacity) {
 	BLENDFUNCTION blend = {};
@@ -19,8 +24,12 @@ void drawPng(int x, int y, int width, int height, IMAGE& image, unsigned char op
 	);
 }
 
-void drawPngWhite(int x, int y, int width, int height, IMAGE& image) {
-	IMAGE whiteImage = image;
+void prepareWhiteImage(IMAGE& image) {
+	// 每张原图只生成一次闪白缓存
+	auto [it, inserted] = whiteImages.try_emplace(&image, image);
+	if (!inserted) return;
+
+	IMAGE& whiteImage = it->second;
 	DWORD* pixels = GetImageBuffer(&whiteImage);
 	int count = whiteImage.getwidth() * whiteImage.getheight();
 
@@ -37,8 +46,52 @@ void drawPngWhite(int x, int y, int width, int height, IMAGE& image) {
 		green = (green + alpha) / 2;
 		blue = (blue + alpha) / 2;
 
-		pixels[i] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+		pixels[i] = (alpha << 24) | (red << 16) |
+			(green << 8) | blue;
 	}
+}
 
-	drawPng(x, y, width, height, whiteImage);
+void drawPngWhite(int x, int y, int width, int height, IMAGE& image) {
+	prepareWhiteImage(image);
+	drawPng(x, y, width, height, whiteImages.at(&image));
+}
+
+void resizePng(IMAGE& image, int width, int height) {
+	int sourceWidth = image.getwidth();
+	int sourceHeight = image.getheight();
+	if (width <= 0 || height <= 0 ||
+		sourceWidth <= 0 || sourceHeight <= 0) return;
+	if (sourceWidth == width && sourceHeight == height) return;
+
+	IMAGE resized(width, height);
+	const DWORD* source = GetImageBuffer(&image);
+	DWORD* target = GetImageBuffer(&resized);
+
+	for (int y = 0; y < height; ++y) {
+		double sy = height > 1
+			? double(y) * (sourceHeight - 1) / (height - 1) : 0;
+		int y0 = static_cast<int>(sy);
+		int y1 = y0 + 1 < sourceHeight ? y0 + 1 : y0;
+		double ty = sy - y0;
+
+		for (int x = 0; x < width; ++x) {
+			double sx = width > 1
+				? double(x) * (sourceWidth - 1) / (width - 1) : 0;
+			int x0 = static_cast<int>(sx);
+			int x1 = x0 + 1 < sourceWidth ? x0 + 1 : x0;
+			double tx = sx - x0;
+			DWORD pixel = 0;
+
+			// 颜色与透明度使用相同权重，保持透明边缘。
+			for (int shift = 0; shift < 32; shift += 8) {
+				double top = ((source[y0 * sourceWidth + x0] >> shift) & 255) * (1 - tx)
+					+ ((source[y0 * sourceWidth + x1] >> shift) & 255) * tx;
+				double bottom = ((source[y1 * sourceWidth + x0] >> shift) & 255) * (1 - tx)
+					+ ((source[y1 * sourceWidth + x1] >> shift) & 255) * tx;
+				pixel |= static_cast<DWORD>(top * (1 - ty) + bottom * ty + 0.5) << shift;
+			}
+			target[y * width + x] = pixel;
+		}
+	}
+	image = resized;
 }
