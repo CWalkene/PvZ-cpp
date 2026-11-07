@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="PvZ-cpp.vcxproj" Id="ad47ea5b-e9a4-471c-b4e8-6ca8f440d110" />
+</Solution>
