@@ -6,8 +6,6 @@ void WaveManager::reset(ULONGLONG now) {
 		bool isBigWave = (i + 1) % 10 == 0;
 		int count = 2 + i / 4;
 
-		// 旧固定间隔说明保留，当前使用下方波次配置。
-		// 第一只等 10 秒，后面的每只间隔 5 秒
 		waves[i] = WaveConfig{
 			isBigWave ? count * 2 : count,
 			isBigWave ? 400ULL : 800ULL,

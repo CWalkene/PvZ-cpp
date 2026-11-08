@@ -579,8 +579,10 @@ void Game::drawSelected() {
 }
 
 void Game::spawnSun(int x, int y) {
+	std::uniform_int_distribution<int> randomDirection(0, 1);
+	int offsetX = randomDirection(randomEngine) == 0 ? -35 : 35;
 	suns.emplace_back(x, y, sunFrames);
-	suns.back().beginSpawn(x + 35, y + 60);
+	suns.back().beginSpawn(x + offsetX, y + 60);
 }
 
 void Game::spawnSkySun() {

@@ -19,5 +19,5 @@ public:
 private:
 	bool productionStarted = false;
 	ULONGLONG lastProductionTime = 0;
-	static constexpr ULONGLONG PRODUCTION_INTERVAL = 10000; // 生产冷却毫秒
+	static constexpr ULONGLONG PRODUCTION_INTERVAL = 15000; // 生产冷却毫秒
 };
