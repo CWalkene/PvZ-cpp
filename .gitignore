@@ -3,7 +3,6 @@
 /x64/
 /Debug/
 /Release/
-/PvZ-project/x64/
 *.vcxproj.user
 __pycache__/
 *.pyc
